@@ -10,7 +10,7 @@ import { issueService } from '../services/issue.service';
 import { photoService } from '../services/photo.service';
 import VoiceInput from '../components/VoiceInput';
 import PhotoUpload from '../components/PhotoUpload';
-import { COMPLETION_STATUSES, type VehicleModel, type Batch, type IssuePhoto, type Issue } from '../types';
+import { COMPLETION_STATUSES, ISSUE_CATEGORIES, type VehicleModel, type Batch, type IssuePhoto, type Issue } from '../types';
 
 const { Title } = Typography;
 const { TextArea } = Input;
@@ -20,6 +20,8 @@ interface FormValues {
   batch_id: string;
   brief_description: string;
   detailed_description: string;
+  category: string;
+  responsible_person: string;
   completion_status: string;
   related_materials: string;
 }
@@ -76,6 +78,8 @@ export default function IssueFormPage() {
           batch_id: batch.id,
           brief_description: issue.brief_description,
           detailed_description: issue.detailed_description || '',
+          category: issue.category || undefined,
+          responsible_person: issue.responsible_person || '',
           completion_status: issue.completion_status,
           related_materials: issue.related_materials || '',
         });
@@ -147,6 +151,8 @@ export default function IssueFormPage() {
         serial_number: nextSerial,
         brief_description: values.brief_description,
         detailed_description: values.detailed_description || '',
+        category: values.category || null,
+        responsible_person: values.responsible_person || null,
         completion_status: (values.completion_status || '待处理') as Issue['completion_status'],
         related_materials: values.related_materials || '',
       };
@@ -280,6 +286,19 @@ export default function IssueFormPage() {
         {/* 涉及物料 */}
         <Form.Item name="related_materials" label="涉及物料">
           <TextArea rows={2} placeholder="涉及的物料/零部件名称或编号" />
+        </Form.Item>
+
+        {/* 问题分类 */}
+        <Form.Item name="category" label="问题分类" rules={[{ required: true, message: '请选择问题分类' }]}>
+          <Select
+            placeholder="请选择问题类型"
+            options={ISSUE_CATEGORIES.map((c) => ({ label: c, value: c }))}
+          />
+        </Form.Item>
+
+        {/* 责任人 */}
+        <Form.Item name="responsible_person" label="责任人" rules={[{ required: true, message: '请填写责任人' }]}>
+          <Input placeholder="请输入该问题对应的责任人姓名" />
         </Form.Item>
 
         {/* 完成情况 */}
