@@ -13,9 +13,11 @@ const { Title, Text } = Typography;
 
 const DEFAULT_FIELDS: ExportFieldOption[] = [
   { key: 'serial_number', label: '序号', checked: true },
+  { key: 'category', label: '问题分类', checked: true },
   { key: 'brief_description', label: '问题简述', checked: true },
   { key: 'detailed_description', label: '详细描述', checked: true },
   { key: 'completion_status', label: '完成情况', checked: true },
+  { key: 'responsible_person', label: '责任人', checked: true },
   { key: 'recorder_name', label: '记录人', checked: true },
   { key: 'recorded_at', label: '记录时间', checked: true },
   { key: 'related_materials', label: '涉及物料', checked: false },
