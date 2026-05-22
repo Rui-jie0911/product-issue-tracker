@@ -194,7 +194,25 @@ CREATE POLICY "所有认证用户可删除照片"
   USING (true);
 
 -- =============================================
--- 创建存储桶（在 Supabase Dashboard → Storage 中手动创建）
--- 桶名称: issue-photos
--- 权限: public (公开读取)
+-- 6. 存储桶 RLS 策略（先在 Supabase Dashboard → Storage 中手动创建桶）
+--    桶名称: issue-photos，勾选"Public bucket"
+--    创建完桶后，执行以下策略
 -- =============================================
+
+-- 允许认证用户上传文件到 issue-photos 桶
+CREATE POLICY "认证用户可上传照片"
+  ON storage.objects FOR INSERT
+  TO authenticated
+  WITH CHECK (bucket_id = 'issue-photos');
+
+-- 允许认证用户读取 issue-photos 桶中的文件
+CREATE POLICY "任何人可查看照片"
+  ON storage.objects FOR SELECT
+  USING (bucket_id = 'issue-photos');
+
+-- 允许认证用户删除自己上传的文件
+CREATE POLICY "认证用户可删除自己上传的照片"
+  ON storage.objects FOR DELETE
+  TO authenticated
+  USING (bucket_id = 'issue-photos');
+
