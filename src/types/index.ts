@@ -24,7 +24,9 @@ export interface Issue {
   batch_id: string;
   serial_number: number;
   brief_description: string;
+  category: string | null;
   completion_status: '待处理' | '处理中' | '已解决' | '已关闭';
+  responsible_person: string | null;
   recorder_id: string;
   recorded_at: string;
   detailed_description: string | null;
@@ -72,6 +74,15 @@ export interface ExportFieldOption {
   checked: boolean;
   isImage?: boolean;
 }
+
+// ===== 问题分类常量 =====
+export const ISSUE_CATEGORIES = [
+  '设计问题',
+  '工艺问题',
+  '来料质量问题',
+  '装配问题',
+  '采购进度问题',
+] as const;
 
 // ===== 完成状态常量 =====
 export const COMPLETION_STATUSES = ['待处理', '处理中', '已解决', '已关闭'] as const;
