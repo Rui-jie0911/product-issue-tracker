@@ -75,6 +75,9 @@ export async function exportToExcel(
         case 'serial_number':
           value = issue.serial_number;
           break;
+        case 'category':
+          value = issue.category || '';
+          break;
         case 'brief_description':
           value = issue.brief_description;
           break;
@@ -83,6 +86,9 @@ export async function exportToExcel(
           break;
         case 'completion_status':
           value = issue.completion_status;
+          break;
+        case 'responsible_person':
+          value = issue.responsible_person || '';
           break;
         case 'recorder_name':
           value = issue.recorder_name || '';
@@ -161,6 +167,9 @@ export async function exportToExcel(
       case 'serial_number':
         col.width = 8;
         break;
+      case 'category':
+        col.width = 14;
+        break;
       case 'brief_description':
         col.width = 30;
         break;
@@ -168,6 +177,9 @@ export async function exportToExcel(
         col.width = 40;
         break;
       case 'completion_status':
+        col.width = 12;
+        break;
+      case 'responsible_person':
         col.width = 12;
         break;
       case 'recorder_name':
