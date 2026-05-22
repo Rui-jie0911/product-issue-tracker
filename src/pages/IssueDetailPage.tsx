@@ -99,6 +99,17 @@ export default function IssueDetailPage() {
           <Descriptions.Item label="涉及物料">
             <Text>{issue.related_materials || '—'}</Text>
           </Descriptions.Item>
+          <Descriptions.Item label="问题分类">
+            <span style={{
+              display: 'inline-block', padding: '1px 8px', borderRadius: 10, fontSize: 12,
+              background: '#e6f7ff', color: '#1890ff', border: '1px solid #91d5ff',
+            }}>
+              {issue.category || '—'}
+            </span>
+          </Descriptions.Item>
+          <Descriptions.Item label="责任人">
+            <Text strong>{issue.responsible_person || '—'}</Text>
+          </Descriptions.Item>
           <Descriptions.Item label="完成情况">
             <Select
               value={issue.completion_status}
