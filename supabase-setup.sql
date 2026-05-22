@@ -80,7 +80,9 @@ CREATE TABLE issues (
   batch_id            uuid REFERENCES batches ON DELETE CASCADE NOT NULL,
   serial_number       integer NOT NULL,
   brief_description   text NOT NULL,
+  category            text,
   completion_status   text NOT NULL DEFAULT '待处理',
+  responsible_person  text,
   recorder_id         uuid REFERENCES auth.users NOT NULL DEFAULT auth.uid(),
   recorded_at         timestamptz NOT NULL DEFAULT now(),
   detailed_description text,
@@ -88,6 +90,10 @@ CREATE TABLE issues (
   created_at          timestamptz NOT NULL DEFAULT now(),
   updated_at          timestamptz NOT NULL DEFAULT now()
 );
+
+-- 如果 issues 表已存在，用以下语句追加新列（不会覆盖已有数据）
+-- ALTER TABLE issues ADD COLUMN IF NOT EXISTS category text;
+-- ALTER TABLE issues ADD COLUMN IF NOT EXISTS responsible_person text;
 
 ALTER TABLE issues ENABLE ROW LEVEL SECURITY;
 
