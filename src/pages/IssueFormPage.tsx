@@ -7,6 +7,7 @@ import { ArrowLeftOutlined, SaveOutlined } from '@ant-design/icons';
 import { modelService } from '../services/model.service';
 import { batchService } from '../services/batch.service';
 import { issueService } from '../services/issue.service';
+import { photoService } from '../services/photo.service';
 import VoiceInput from '../components/VoiceInput';
 import PhotoUpload from '../components/PhotoUpload';
 import { COMPLETION_STATUSES, type VehicleModel, type Batch, type IssuePhoto, type Issue } from '../types';
@@ -40,9 +41,12 @@ export default function IssueFormPage() {
   const [saving, setSaving] = useState(false);
   const [loadingEdit, setLoadingEdit] = useState(false);
 
+  // 本地状态——语音输入实时更新用
+  const [briefText, setBriefText] = useState('');
+  const [detailText, setDetailText] = useState('');
+
   const isEdit = !!editId;
 
-  // 加载车型列表
   useEffect(() => {
     modelService.list().then(setModels).catch(() => message.error('加载车型失败'));
   }, []);
@@ -52,7 +56,6 @@ export default function IssueFormPage() {
     if (!editId) return;
     setLoadingEdit(true);
     issueService.getById(editId).then(async (issue) => {
-      // 找到该问题所属的批次和车型
       const batches_all = await getBatchPath(issue.batch_id);
       setIssueId(editId);
 
@@ -62,8 +65,9 @@ export default function IssueFormPage() {
         setUnitCount(batch.unit_count);
         setNextSerial(issue.serial_number);
         setPhotos(issue.photos || []);
+        setBriefText(issue.brief_description);
+        setDetailText(issue.detailed_description || '');
 
-        // 加载该车型下的批次
         const bs = await batchService.listByModel(batch.model_id);
         setBatches(bs);
 
@@ -79,7 +83,6 @@ export default function IssueFormPage() {
     }).finally(() => setLoadingEdit(false));
   }, [editId]);
 
-  // 辅助函数：根据 batch_id 找到所属车型
   const getBatchPath = async (batchId: string) => {
     const models = await modelService.list();
     for (const model of models) {
@@ -90,10 +93,9 @@ export default function IssueFormPage() {
     return null;
   };
 
-  // 预选批次（从首页点"新建问题"进来时）
+  // 预设批次（从首页"新建问题"进来时）
   useEffect(() => {
     if (isEdit || !presetBatchId) return;
-    // 找到预设批次
     (async () => {
       const result = await getBatchPath(presetBatchId);
       if (result) {
@@ -115,23 +117,18 @@ export default function IssueFormPage() {
     })();
   }, [presetBatchId]);
 
-  // 选择车型：加载批次列表
   const handleModelChange = async (modelId: string) => {
     setSelectedModel(modelId);
     setUnitCount(null);
     form.setFieldsValue({ batch_id: undefined as unknown as string });
-
     try {
-      const bs = await batchService.listByModel(modelId);
-      setBatches(bs);
+      setBatches(await batchService.listByModel(modelId));
     } catch { message.error('加载批次失败'); }
   };
 
-  // 选择批次：显示台套数 + 获取序号
   const handleBatchChange = async (batchId: string) => {
     const batch = batches.find((b) => b.id === batchId);
     setUnitCount(batch?.unit_count || null);
-
     try {
       const sn = isEdit ? nextSerial : await issueService.getNextSerialNumber(batchId);
       setNextSerial(sn);
@@ -159,7 +156,18 @@ export default function IssueFormPage() {
         message.success('问题已更新');
         navigate(`/issues/${editId}`);
       } else {
-        await issueService.create(issueData);
+        const created = await issueService.create(issueData);
+
+        // 新建模式下，把暂存的照片关联到新问题
+        const pendingUrls = photos.map((p) => p.photo_url);
+        if (pendingUrls.length > 0) {
+          try {
+            await photoService.createBatch(created.id, pendingUrls);
+          } catch (err) {
+            message.warning('问题已保存，但照片关联失败: ' + (err as Error).message);
+          }
+        }
+
         message.success('问题已记录');
         navigate('/');
       }
@@ -176,7 +184,6 @@ export default function IssueFormPage() {
 
   return (
     <div style={{ background: '#fff', minHeight: '100vh', padding: 16 }}>
-      {/* 头部 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
         <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)} type="text" />
         <Title level={4} style={{ margin: 0 }}>{isEdit ? '编辑问题' : '记录问题'}</Title>
@@ -188,7 +195,7 @@ export default function IssueFormPage() {
           <Select
             placeholder="请选择车型"
             options={models.map((m) => ({ label: m.name, value: m.id }))}
-            onChange={(val) => handleModelChange(val)}
+            onChange={handleModelChange}
             showSearch
             filterOption={(input, option) => (option?.label as string)?.toLowerCase().includes(input.toLowerCase())}
           />
@@ -199,12 +206,12 @@ export default function IssueFormPage() {
           <Select
             placeholder={selectedModel ? '请选择批次号' : '请先选择车型'}
             options={batches.map((b) => ({ label: `${b.batch_number}（台套: ${b.unit_count}）`, value: b.id }))}
-            onChange={(val) => handleBatchChange(val)}
+            onChange={handleBatchChange}
             disabled={!selectedModel}
           />
         </Form.Item>
 
-        {/* 台套数 + 序号（自动显示） */}
+        {/* 台套数 + 序号 */}
         <div style={{ display: 'flex', gap: 24, marginBottom: 24 }}>
           <div>
             <Typography.Text type="secondary">台套数：</Typography.Text>
@@ -216,20 +223,29 @@ export default function IssueFormPage() {
           </div>
         </div>
 
-        {/* 简短描述 + 语音输入 */}
+        {/* 问题简述 + 语音输入 */}
         <Form.Item name="brief_description" label="问题简述" rules={[{ required: true, message: '请输入问题简述' }]}>
           <div>
             <TextArea
               id="brief-desc"
               rows={2}
-              placeholder="简要描述问题（可使用语音输入）"
+              placeholder="简短描述问题（可使用语音输入）"
               maxLength={200}
               showCount
+              value={briefText}
+              onChange={(e) => {
+                setBriefText(e.target.value);
+                form.setFieldValue('brief_description', e.target.value);
+              }}
             />
             <div style={{ marginTop: 4 }}>
               <VoiceInput
-                value={form.getFieldValue('brief_description') || ''}
-                onChange={(text) => form.setFieldValue('brief_description', text)}
+                fieldValue={briefText}
+                onTextChange={(text) => {
+                  setBriefText(text);
+                  form.setFieldValue('brief_description', text);
+                }}
+                inputId="brief-desc"
               />
             </div>
           </div>
@@ -242,11 +258,20 @@ export default function IssueFormPage() {
               id="detail-desc"
               rows={4}
               placeholder="详细描述问题的具体情况（可使用语音输入）"
+              value={detailText}
+              onChange={(e) => {
+                setDetailText(e.target.value);
+                form.setFieldValue('detailed_description', e.target.value);
+              }}
             />
             <div style={{ marginTop: 4 }}>
               <VoiceInput
-                value={form.getFieldValue('detailed_description') || ''}
-                onChange={(text) => form.setFieldValue('detailed_description', text)}
+                fieldValue={detailText}
+                onTextChange={(text) => {
+                  setDetailText(text);
+                  form.setFieldValue('detailed_description', text);
+                }}
+                inputId="detail-desc"
               />
             </div>
           </div>
@@ -262,13 +287,18 @@ export default function IssueFormPage() {
           <Select options={COMPLETION_STATUSES.map((s) => ({ label: s, value: s }))} />
         </Form.Item>
 
-        {/* 拍照上传（仅编辑模式，新建模式保存后再上传） */}
-        {isEdit && issueId && (
-          <div style={{ marginBottom: 24 }}>
-            <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>问题照片</Typography.Text>
+        {/* 照片上传——新建和编辑模式均可使用 */}
+        <div style={{ marginBottom: 24 }}>
+          <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>问题照片</Typography.Text>
+          {isEdit && issueId ? (
             <PhotoUpload photos={photos} issueId={issueId} onPhotosChange={setPhotos} />
-          </div>
-        )}
+          ) : (
+            <PhotoUpload photos={photos} onPhotosChange={setPhotos} />
+          )}
+          <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
+            新建模式下照片会先上传，保存问题后自动关联
+          </Typography.Text>
+        </div>
 
         {/* 保存按钮 */}
         <Button type="primary" htmlType="submit" icon={<SaveOutlined />} loading={saving} block size="large">
