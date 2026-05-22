@@ -1,6 +1,8 @@
 import { useState, useRef, useCallback } from 'react';
-import { Button, message } from 'antd';
-import { AudioOutlined, AudioMutedOutlined } from '@ant-design/icons';
+import { Button, Modal, Typography, message } from 'antd';
+import { AudioOutlined, AudioMutedOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+
+const { Text } = Typography;
 
 interface SpeechRecognitionEvent extends Event {
   results: SpeechRecognitionResultList;
@@ -9,6 +11,7 @@ interface SpeechRecognitionEvent extends Event {
 
 interface SpeechRecognitionErrorEvent extends Event {
   error: string;
+  message?: string;
 }
 
 interface SpeechRecognition extends EventTarget {
@@ -18,6 +21,7 @@ interface SpeechRecognition extends EventTarget {
   onresult: ((event: SpeechRecognitionEvent) => void) | null;
   onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
   onend: (() => void) | null;
+  onstart: (() => void) | null;
   start(): void;
   stop(): void;
   abort(): void;
@@ -30,36 +34,56 @@ declare global {
   }
 }
 
+// 错误码中文翻译
+const ERROR_MSGS: Record<string, string> = {
+  'not-allowed': '麦克风权限被拒绝，请在浏览器设置中允许本站使用麦克风',
+  'audio-capture': '未检测到麦克风设备',
+  'network': '语音服务网络连接失败，请检查网络或尝试用输入法自带的语音输入',
+  'service-not-allowed': '当前网络环境不支持语音识别服务',
+  'bad-grammar': '语音识别语法错误',
+  'language-not-supported': '不支持中文语音识别，请使用 Chrome 浏览器',
+};
+
 interface Props {
-  // 当前输入框的已有文本（录音开始时以此为起点追加）
   fieldValue: string;
-  // 文本变化时回调（实时更新）
   onTextChange: (text: string) => void;
-  // 给 TextArea 设置值的函数（因为 antd Form 的 TextArea 需要通过原生 DOM 方式更新才能显示）
   inputId?: string;
 }
 
 export default function VoiceInput({ fieldValue, onTextChange, inputId }: Props) {
   const [recording, setRecording] = useState(false);
-  const baseTextRef = useRef('');       // 录音开始时的已有文本
-  const finalTextRef = useRef('');      // 本次录音已确认的文本
+  const [errorModalOpen, setErrorModalOpen] = useState(false);
+  const [lastError, setLastError] = useState('');
+  const baseTextRef = useRef('');
+  const finalTextRef = useRef('');
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const retryCountRef = useRef(0);
+  const MAX_RETRIES = 2;
 
-  const startRecording = useCallback(() => {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) {
-      message.error('当前浏览器不支持语音识别，请使用 Chrome 或 Edge 浏览器');
-      return;
+  const updateInput = (text: string) => {
+    onTextChange(text);
+    if (inputId) {
+      const el = document.getElementById(inputId) as HTMLTextAreaElement | null;
+      if (el) {
+        el.value = text;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+      }
     }
+  };
 
-    // 记录开始时的文本作为基底
-    baseTextRef.current = fieldValue;
-    finalTextRef.current = '';
+  const createRecognition = useCallback(() => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return null;
 
     const recognition = new SR();
     recognition.lang = 'zh-CN';
     recognition.continuous = true;
     recognition.interimResults = true;
+
+    recognition.onstart = () => {
+      setRecording(true);
+      retryCountRef.current = 0;
+    };
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
       let interim = '';
@@ -74,68 +98,104 @@ export default function VoiceInput({ fieldValue, onTextChange, inputId }: Props)
         }
       }
 
-      // 累积已确认的文本
       if (final) {
         finalTextRef.current += final;
       }
 
-      // 实时拼接：基底 + 已确认 + 临时
-      const fullText = baseTextRef.current + finalTextRef.current + interim;
-      onTextChange(fullText);
-
-      // 同步更新 DOM 输入框（antd TextArea 不受控时需要）
-      if (inputId) {
-        const el = document.getElementById(inputId) as HTMLTextAreaElement | null;
-        if (el) {
-          el.value = fullText;
-          el.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-      }
+      updateInput(baseTextRef.current + finalTextRef.current + interim);
     };
 
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-      if (event.error === 'no-speech') {
-        // 没有检测到语音，静默处理，不报错
-      } else {
-        message.error(`语音识别出错: ${event.error}`);
+      const errCode = event.error;
+
+      // 没检测到语音，尝试自动重启（可能是停顿导致）
+      if (errCode === 'no-speech') {
+        return; // 静默处理
       }
+
+      // 网络错误或服务不可用，尝试重试
+      if ((errCode === 'network' || errCode === 'aborted') && retryCountRef.current < MAX_RETRIES) {
+        retryCountRef.current++;
+        // 短暂延迟后重试
+        setTimeout(() => {
+          try { recognition.start(); } catch { /* 忽略 */ }
+        }, 500);
+        return;
+      }
+
       setRecording(false);
+      const msg = ERROR_MSGS[errCode] || `语音识别出错(${errCode})`;
+      setLastError(msg);
+      setErrorModalOpen(true);
     };
 
     recognition.onend = () => {
       setRecording(false);
-      // 录音结束时，把最终文本写入
-      const finalText = baseTextRef.current + finalTextRef.current;
-      onTextChange(finalText);
-      if (inputId) {
-        const el = document.getElementById(inputId) as HTMLTextAreaElement | null;
-        if (el) {
-          el.value = finalText;
-          el.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-      }
+      // 提交最终文本
+      updateInput(baseTextRef.current + finalTextRef.current);
     };
 
+    return recognition;
+  }, [updateInput]);
+
+  const startRecording = useCallback(() => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      message.error('当前浏览器不支持语音识别，请使用 Chrome 浏览器。或使用输入法自带的语音输入功能。');
+      return;
+    }
+
+    baseTextRef.current = fieldValue;
+    finalTextRef.current = '';
+    retryCountRef.current = 0;
+
+    const recognition = createRecognition();
+    if (!recognition) return;
+
     recognitionRef.current = recognition;
-    recognition.start();
-    setRecording(true);
-  }, [fieldValue, onTextChange, inputId]);
+    try {
+      recognition.start();
+    } catch {
+      message.error('语音识别启动失败，请刷新页面重试');
+    }
+  }, [fieldValue, createRecognition]);
 
   const stopRecording = useCallback(() => {
-    recognitionRef.current?.stop();
+    try {
+      recognitionRef.current?.stop();
+    } catch { /* 忽略 */ }
     setRecording(false);
   }, []);
 
   return (
-    <Button
-      type={recording ? 'primary' : 'default'}
-      danger={recording}
-      icon={recording ? <AudioMutedOutlined /> : <AudioOutlined />}
-      onClick={recording ? stopRecording : startRecording}
-      className={recording ? 'voice-recording' : ''}
-      style={{ borderRadius: 20 }}
-    >
-      {recording ? '停止' : '语音输入'}
-    </Button>
+    <>
+      <Button
+        type={recording ? 'primary' : 'default'}
+        danger={recording}
+        icon={recording ? <AudioMutedOutlined /> : <AudioOutlined />}
+        onClick={recording ? stopRecording : startRecording}
+        className={recording ? 'voice-recording' : ''}
+        style={{ borderRadius: 20 }}
+      >
+        {recording ? '停止' : '语音输入'}
+      </Button>
+
+      <Modal
+        title={<span><ExclamationCircleOutlined style={{ color: '#faad14', marginRight: 8 }} />语音识别提示</span>}
+        open={errorModalOpen}
+        onCancel={() => setErrorModalOpen(false)}
+        footer={[
+          <Button key="ok" type="primary" onClick={() => setErrorModalOpen(false)}>知道了</Button>,
+        ]}
+        width={360}
+      >
+        <Text>{lastError}</Text>
+        <div style={{ marginTop: 12, padding: 12, background: '#fffbe6', borderRadius: 8 }}>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            <strong>备用方案：</strong>如果语音识别持续失败，您可以直接使用手机输入法自带的语音输入功能（搜狗/讯飞/百度输入法都支持），效果通常更好。
+          </Text>
+        </div>
+      </Modal>
+    </>
   );
 }
