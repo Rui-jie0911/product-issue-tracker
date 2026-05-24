@@ -40,7 +40,19 @@ export default function HomePage() {
   const [issuesLoading, setIssuesLoading] = useState(false);
 
   // === UI 状态 ===
-  const [collapsed, setCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 992);
+  const [collapsed, setCollapsed] = useState(window.innerWidth < 992);
+
+  // 监听窗口尺寸变化，自动折叠/展开侧栏
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 992;
+      setIsMobile(mobile);
+      if (mobile) setCollapsed(true);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
   const [selectedBatchInfo, setSelectedBatchInfo] = useState<Batch | null>(null);
@@ -91,6 +103,7 @@ export default function HomePage() {
     setSelectedBatchInfo(batch);
     setSelectedModelName(modelName);
     loadIssues(batch.id);
+    if (isMobile) setCollapsed(true);
   };
 
   // 删除问题
@@ -365,6 +378,16 @@ export default function HomePage() {
 
       <Layout>
         {/* 左侧导航 */}
+        {/* 手机端展开时显示遮罩 */}
+        {isMobile && !collapsed && (
+          <div
+            onClick={() => setCollapsed(true)}
+            style={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+              background: 'rgba(0,0,0,0.45)', zIndex: 99,
+            }}
+          />
+        )}
         <Sider
           width={260}
           collapsible
@@ -372,7 +395,13 @@ export default function HomePage() {
           trigger={null}
           breakpoint="lg"
           collapsedWidth={0}
-          style={{ background: token.colorBgContainer, borderRight: `1px solid ${token.colorBorderSecondary}` }}
+          style={{
+            background: token.colorBgContainer,
+            borderRight: `1px solid ${token.colorBorderSecondary}`,
+            ...(isMobile && !collapsed
+              ? { position: 'fixed', zIndex: 100, height: '100vh', left: 0, top: 0 }
+              : {}),
+          }}
         >
           <div style={{ padding: '12px 16px', borderBottom: `1px solid ${token.colorBorderSecondary}` }}>
             <Button type="dashed" icon={<PlusOutlined />} block onClick={() => navigate('/issues/new')}>
