@@ -87,6 +87,8 @@ CREATE TABLE issues (
   recorded_at         timestamptz NOT NULL DEFAULT now(),
   detailed_description text,
   related_materials   text,
+  issue_nature        text,
+  vin                 text,
   created_at          timestamptz NOT NULL DEFAULT now(),
   updated_at          timestamptz NOT NULL DEFAULT now()
 );
@@ -94,6 +96,8 @@ CREATE TABLE issues (
 -- 如果 issues 表已存在，用以下语句追加新列（不会覆盖已有数据）
 -- ALTER TABLE issues ADD COLUMN IF NOT EXISTS category text;
 -- ALTER TABLE issues ADD COLUMN IF NOT EXISTS responsible_person text;
+-- ALTER TABLE issues ADD COLUMN IF NOT EXISTS issue_nature text;
+-- ALTER TABLE issues ADD COLUMN IF NOT EXISTS vin text;
 
 ALTER TABLE issues ENABLE ROW LEVEL SECURITY;
 
