@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Button, Spin, message, Typography, Card, Select, Descriptions, Popconfirm,
+  Button, Spin, message, Typography, Card, Select, Descriptions, Popconfirm, Tag,
 } from 'antd';
 import { ArrowLeftOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { issueService } from '../services/issue.service';
@@ -110,6 +110,16 @@ export default function IssueDetailPage() {
           <Descriptions.Item label="责任人">
             <Text strong>{issue.responsible_person || '—'}</Text>
           </Descriptions.Item>
+          <Descriptions.Item label="问题性质">
+            {issue.issue_nature ? (
+              <Tag color={issue.issue_nature === '个例' ? 'orange' : 'blue'}>{issue.issue_nature}</Tag>
+            ) : <Text type="secondary">—</Text>}
+          </Descriptions.Item>
+          {issue.issue_nature === '个例' && (
+            <Descriptions.Item label="车架号">
+              <Text code>{issue.vin || '—'}</Text>
+            </Descriptions.Item>
+          )}
           <Descriptions.Item label="完成情况">
             <Select
               value={issue.completion_status}
