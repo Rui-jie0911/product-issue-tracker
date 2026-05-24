@@ -90,6 +90,12 @@ export async function exportToExcel(
         case 'responsible_person':
           value = issue.responsible_person || '';
           break;
+        case 'issue_nature':
+          value = issue.issue_nature || '';
+          break;
+        case 'vin':
+          value = issue.vin || '';
+          break;
         case 'recorder_name':
           value = issue.recorder_name || '';
           break;
@@ -181,6 +187,12 @@ export async function exportToExcel(
         break;
       case 'responsible_person':
         col.width = 12;
+        break;
+      case 'issue_nature':
+        col.width = 10;
+        break;
+      case 'vin':
+        col.width = 20;
         break;
       case 'recorder_name':
         col.width = 12;
