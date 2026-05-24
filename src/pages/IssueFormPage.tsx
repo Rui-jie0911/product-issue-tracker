@@ -10,7 +10,7 @@ import { issueService } from '../services/issue.service';
 import { photoService } from '../services/photo.service';
 import VoiceInput from '../components/VoiceInput';
 import PhotoUpload from '../components/PhotoUpload';
-import { COMPLETION_STATUSES, ISSUE_CATEGORIES, type VehicleModel, type Batch, type IssuePhoto, type Issue } from '../types';
+import { COMPLETION_STATUSES, ISSUE_CATEGORIES, ISSUE_NATURES, type VehicleModel, type Batch, type IssuePhoto, type Issue } from '../types';
 
 const { Title } = Typography;
 const { TextArea } = Input;
@@ -22,6 +22,8 @@ interface FormValues {
   detailed_description: string;
   category: string;
   responsible_person: string;
+  issue_nature: string;
+  vin: string;
   completion_status: string;
   related_materials: string;
 }
@@ -40,6 +42,7 @@ export default function IssueFormPage() {
   const [nextSerial, setNextSerial] = useState<number>(1);
   const [photos, setPhotos] = useState<IssuePhoto[]>([]);
   const [issueId, setIssueId] = useState<string>('');
+  const [issueNature, setIssueNature] = useState<string | undefined>();
   const [saving, setSaving] = useState(false);
   const [loadingEdit, setLoadingEdit] = useState(false);
 
@@ -48,6 +51,7 @@ export default function IssueFormPage() {
   const [detailText, setDetailText] = useState('');
 
   const isEdit = !!editId;
+  const showVin = issueNature === '个例';
 
   useEffect(() => {
     modelService.list().then(setModels).catch(() => message.error('加载车型失败'));
@@ -69,6 +73,7 @@ export default function IssueFormPage() {
         setPhotos(issue.photos || []);
         setBriefText(issue.brief_description);
         setDetailText(issue.detailed_description || '');
+        setIssueNature(issue.issue_nature || undefined);
 
         const bs = await batchService.listByModel(batch.model_id);
         setBatches(bs);
@@ -80,6 +85,8 @@ export default function IssueFormPage() {
           detailed_description: issue.detailed_description || '',
           category: issue.category || undefined,
           responsible_person: issue.responsible_person || '',
+          issue_nature: issue.issue_nature || undefined,
+          vin: issue.vin || '',
           completion_status: issue.completion_status,
           related_materials: issue.related_materials || '',
         });
@@ -153,6 +160,8 @@ export default function IssueFormPage() {
         detailed_description: values.detailed_description || '',
         category: values.category || null,
         responsible_person: values.responsible_person || null,
+        issue_nature: values.issue_nature || null,
+        vin: values.issue_nature === '个例' ? (values.vin || null) : null,
         completion_status: (values.completion_status || '待处理') as Issue['completion_status'],
         related_materials: values.related_materials || '',
       };
@@ -300,6 +309,25 @@ export default function IssueFormPage() {
         <Form.Item name="responsible_person" label="责任人" rules={[{ required: true, message: '请填写责任人' }]}>
           <Input placeholder="请输入该问题对应的责任人姓名" />
         </Form.Item>
+
+        {/* 问题性质 */}
+        <Form.Item name="issue_nature" label="问题性质" rules={[{ required: true, message: '请选择问题性质' }]}>
+          <Select
+            placeholder="请选择问题性质"
+            options={ISSUE_NATURES.map((n) => ({ label: n, value: n }))}
+            onChange={(val) => {
+              setIssueNature(val);
+              if (val === '批量') form.setFieldValue('vin', '');
+            }}
+          />
+        </Form.Item>
+
+        {/* 车架号——仅个例时显示 */}
+        {showVin && (
+          <Form.Item name="vin" label="车架号" rules={[{ required: true, message: '个例问题必须填写车架号' }]}>
+            <Input placeholder="请输入问题车辆的车架号（VIN码）" />
+          </Form.Item>
+        )}
 
         {/* 完成情况 */}
         <Form.Item name="completion_status" label="完成情况">
