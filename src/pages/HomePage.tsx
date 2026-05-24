@@ -14,7 +14,7 @@ import { modelService } from '../services/model.service';
 import { batchService } from '../services/batch.service';
 import { issueService } from '../services/issue.service';
 import { useAuth } from '../auth/AuthContext';
-import { COMPLETION_STATUSES, ISSUE_CATEGORIES, type VehicleModel, type Batch, type Issue } from '../types';
+import { COMPLETION_STATUSES, ISSUE_CATEGORIES, ISSUE_NATURES, type VehicleModel, type Batch, type Issue } from '../types';
 
 const { Title, Text } = Typography;
 const { Sider, Content, Header } = Layout;
@@ -49,6 +49,7 @@ export default function HomePage() {
   // === 筛选状态 ===
   const [filterStatus, setFilterStatus] = useState<string>('');
   const [filterCategory, setFilterCategory] = useState<string>('');
+  const [filterNature, setFilterNature] = useState<string>('');
   const [filterSearch, setFilterSearch] = useState('');
 
   // 加载车型
@@ -151,6 +152,7 @@ export default function HomePage() {
     return issues.filter((issue) => {
       if (filterStatus && issue.completion_status !== filterStatus) return false;
       if (filterCategory && issue.category !== filterCategory) return false;
+      if (filterNature && issue.issue_nature !== filterNature) return false;
       if (filterSearch) {
         const kw = filterSearch.toLowerCase();
         const match =
@@ -161,7 +163,7 @@ export default function HomePage() {
       }
       return true;
     });
-  }, [issues, filterStatus, filterCategory, filterSearch]);
+  }, [issues, filterStatus, filterCategory, filterNature, filterSearch]);
 
   // === 统计 ===
   const statusCounts = useMemo(() => {
@@ -290,6 +292,14 @@ export default function HomePage() {
             onChange={(v) => setFilterCategory(v || '')}
             options={ISSUE_CATEGORIES.map((c) => ({ label: c, value: c }))}
           />
+          <Select
+            placeholder="问题性质"
+            allowClear
+            style={{ width: 110 }}
+            value={filterNature || undefined}
+            onChange={(v) => setFilterNature(v || '')}
+            options={ISSUE_NATURES.map((n) => ({ label: n, value: n }))}
+          />
           <Input
             placeholder="搜索序号/描述/责任人"
             prefix={<SearchOutlined />}
@@ -298,7 +308,7 @@ export default function HomePage() {
             value={filterSearch}
             onChange={(e) => setFilterSearch(e.target.value)}
           />
-          {(filterStatus || filterCategory || filterSearch) && (
+          {(filterStatus || filterCategory || filterNature || filterSearch) && (
             <Text type="secondary" style={{ fontSize: 12 }}>
               筛选结果: {filteredIssues.length} 条
             </Text>
