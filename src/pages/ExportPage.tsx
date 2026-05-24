@@ -18,6 +18,8 @@ const DEFAULT_FIELDS: ExportFieldOption[] = [
   { key: 'detailed_description', label: '详细描述', checked: true },
   { key: 'completion_status', label: '完成情况', checked: true },
   { key: 'responsible_person', label: '责任人', checked: true },
+  { key: 'issue_nature', label: '问题性质', checked: true },
+  { key: 'vin', label: '车架号', checked: true },
   { key: 'recorder_name', label: '记录人', checked: true },
   { key: 'recorded_at', label: '记录时间', checked: true },
   { key: 'related_materials', label: '涉及物料', checked: false },
