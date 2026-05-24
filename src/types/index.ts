@@ -27,6 +27,8 @@ export interface Issue {
   category: string | null;
   completion_status: '待处理' | '处理中' | '已解决' | '已关闭';
   responsible_person: string | null;
+  issue_nature: string | null;        // 问题性质：个例/批量
+  vin: string | null;                 // 车架号（个例时必填）
   recorder_id: string;
   recorded_at: string;
   detailed_description: string | null;
@@ -74,6 +76,10 @@ export interface ExportFieldOption {
   checked: boolean;
   isImage?: boolean;
 }
+
+// ===== 问题分类常量 =====
+// ===== 问题性质常量 =====
+export const ISSUE_NATURES = ['个例', '批量'] as const;
 
 // ===== 问题分类常量 =====
 export const ISSUE_CATEGORIES = [
